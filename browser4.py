@@ -2,30 +2,17 @@ import sys
 import os
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QImageReader, QPixmap, QPainter
-from PyQt5.QtWidgets import QApplication, QFileDialog, QGraphicsPixmapItem, QGraphicsScene, QMainWindow, QListWidget, QMenu, QMenuBar, QAction, QSplitter, QLabel, QVBoxLayout, QWidget, QHBoxLayout, QGraphicsView, QToolBar, QPushButton, QCheckBox, QLineEdit
+from PyQt5.QtWidgets import QApplication, QFileDialog, QGraphicsPixmapItem, \
+                            QGraphicsScene, QMainWindow, QListWidget, QStatusBar, \
+                            QAction, QSplitter, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, \
+                            QGraphicsView, QToolBar, QPushButton, QCheckBox, QLineEdit
 
-class ImageBrowser(QMainWindow):
+class ImageBrowserWidget(QWidget):
     def __init__(self):
         super().__init__()
+
         self.current_scale = 1.0
         self.current_file_path = None
-        self.initUI()
-
-
-    def initUI(self):
-        self.setWindowTitle('Image Browser')
-
-        # Menu Bar
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('File')
-
-        openFile = QAction('Open File', self)
-        openFile.triggered.connect(self.showDialogOpenFile)
-        fileMenu.addAction(openFile)
-
-        openFolder = QAction('Open Folder', self)
-        openFolder.triggered.connect(self.showDialogOpenFolder)
-        fileMenu.addAction(openFolder)
 
         # File List Widget
         self.list_widget = QListWidget()
@@ -36,16 +23,18 @@ class ImageBrowser(QMainWindow):
         self.scene = QGraphicsScene()
         self.graphics_view.setScene(self.scene)
 
-        # Set initial width for file list
-        font_metrics = self.list_widget.fontMetrics()
-        char_width = font_metrics.horizontalAdvance('X')
-        self.list_widget.setMinimumWidth(char_width * 20)
-
-        # Set initial size for image viewer
-        self.graphics_view.setMinimumSize(800, 600)
-
         # Toolbar
-        self.toolbar = self.addToolBar("Tools")
+        self.toolbar = QToolBar()
+
+        # Add Open File and Open Folder buttons
+        self.open_file_btn = QPushButton("Open File")
+        self.open_file_btn.clicked.connect(self.showDialogOpenFile)
+        self.toolbar.addWidget(self.open_file_btn)
+
+        self.open_folder_btn = QPushButton("Open Folder")
+        self.open_folder_btn.clicked.connect(self.showDialogOpenFolder)
+        self.toolbar.addWidget(self.open_folder_btn)
+
         self.zoom_in_btn = QPushButton('+')
         self.zoom_in_btn.clicked.connect(self.zoom_in)
         self.toolbar.addWidget(self.zoom_in_btn)
@@ -58,29 +47,31 @@ class ImageBrowser(QMainWindow):
         self.zoom_auto_btn.clicked.connect(self.zoom_auto)
         self.toolbar.addWidget(self.zoom_auto_btn)
 
-        # Status Bar
-        self.status_bar = self.statusBar()
+        # Layout
+        hbox = QHBoxLayout()
 
-        # Layouts
-        left_layout = QVBoxLayout()
-        left_layout.addWidget(self.list_widget)
-
-        right_layout = QVBoxLayout()
-        right_layout.addWidget(self.graphics_view)
-
-        main_layout = QHBoxLayout()
-        main_layout.addLayout(left_layout)
-        main_layout.addLayout(right_layout)
-
-        central_widget = QWidget()
-        central_widget.setLayout(main_layout)
-        
-        # Using QSplitter for adjustable width
+        # Add QSplitter for independent width adjustment
         splitter = QSplitter(Qt.Horizontal)
         splitter.addWidget(self.list_widget)
         splitter.addWidget(self.graphics_view)
-        self.setCentralWidget(splitter)
+        hbox.addWidget(splitter)
 
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.toolbar)
+        main_layout.addLayout(hbox)
+        self.setLayout(main_layout)
+
+        # Set initial width for file list
+        font_metrics = self.list_widget.fontMetrics()
+        char_width = font_metrics.horizontalAdvance('X')
+        self.list_widget.setMinimumWidth(char_width * 20)
+
+        # Set initial size for image viewer
+        self.graphics_view.setMinimumSize(600, 300)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        main_layout.addWidget(self.status_bar)
 
     def showDialogOpenFile(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file', os.getenv('HOME'), "Images (*.jpg *.png)")
@@ -105,19 +96,18 @@ class ImageBrowser(QMainWindow):
 
     def load_image_file(self, file_path, scale=1):
         self.current_file_path = file_path
-        self.status_bar.showMessage("Loading image...")
+        # self.status_bar.showMessage("Loading image...")
         pixmap = QPixmap(file_path)
         if scale > 0:
-            pixmap = pixmap.scaled(pixmap.width() * scale, pixmap.height() * scale, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = pixmap.scaled(pixmap.width() * scale, pixmap.height() * scale, 
+                                   Qt.KeepAspectRatio, Qt.SmoothTransformation)
         item = QGraphicsPixmapItem(pixmap)
         self.scene.clear()
         self.scene.addItem(item)
         self.graphics_view.setScene(self.scene)
         if scale <= 0:
             self.zoom_auto()
-        self.status_bar.showMessage("Image loaded")
-
-
+        # self.status_bar.showMessage("Image loaded")
 
     def load_image(self, item):
         index = self.list_widget.row(item)
@@ -135,6 +125,43 @@ class ImageBrowser(QMainWindow):
     def zoom_auto(self):
         self.graphics_view.fitInView(self.scene.itemsBoundingRect(), mode=Qt.KeepAspectRatio)
 
+
+
+class ImageBrowser(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+
+    def initUI(self):
+        self.setWindowTitle('Image Browser')
+
+        # Image Browser Widgets
+        self.image_browser_widget1 = ImageBrowserWidget()
+        self.image_browser_widget2 = ImageBrowserWidget()
+
+        # Layout with QSplitter for adjustable height
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(self.image_browser_widget1)
+        splitter.addWidget(self.image_browser_widget2)
+
+        # Set stretch factors for widgets in splitter
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
+
+        container = QWidget()
+        container_layout = QGridLayout()
+        container_layout.addWidget(splitter, 0, 0)
+        container_layout.setRowStretch(0, 1)
+        container.setLayout(container_layout)
+        self.setCentralWidget(container)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+
+
+    
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
