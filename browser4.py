@@ -14,7 +14,7 @@ class ImageBrowserWidget(QWidget):
         self.current_scale = 1.0
         self.current_file_path = None
 
-        # File List Widget
+         # File List Widget
         self.list_widget = QListWidget()
         self.list_widget.itemClicked.connect(self.load_image)
 
@@ -59,6 +59,14 @@ class ImageBrowserWidget(QWidget):
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.toolbar)
         main_layout.addLayout(hbox)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        main_layout.addWidget(self.status_bar)
+        main_layout.setStretchFactor(self.toolbar, 0)
+        main_layout.setStretchFactor(hbox, 1)
+        main_layout.setStretchFactor(self.status_bar, 0)
+
         self.setLayout(main_layout)
 
         # Set initial width for file list
@@ -69,9 +77,9 @@ class ImageBrowserWidget(QWidget):
         # Set initial size for image viewer
         self.graphics_view.setMinimumSize(600, 300)
 
-        # Status Bar
-        self.status_bar = QStatusBar()
-        main_layout.addWidget(self.status_bar)
+        # Set stretch factors for file list and graphics_view
+        hbox.setStretchFactor(self.list_widget, 0)
+        hbox.setStretchFactor(self.graphics_view, 1)
 
     def showDialogOpenFile(self):
         fname = QFileDialog.getOpenFileName(self, 'Open file', os.getenv('HOME'), "Images (*.jpg *.png)")
@@ -96,7 +104,7 @@ class ImageBrowserWidget(QWidget):
 
     def load_image_file(self, file_path, scale=1):
         self.current_file_path = file_path
-        # self.status_bar.showMessage("Loading image...")
+        self.status_bar.showMessage("Loading image...")
         pixmap = QPixmap(file_path)
         if scale > 0:
             pixmap = pixmap.scaled(pixmap.width() * scale, pixmap.height() * scale, 
@@ -107,24 +115,28 @@ class ImageBrowserWidget(QWidget):
         self.graphics_view.setScene(self.scene)
         if scale <= 0:
             self.zoom_auto()
-        # self.status_bar.showMessage("Image loaded")
+        self.status_bar.showMessage("Image loaded")
 
     def load_image(self, item):
         index = self.list_widget.row(item)
         file_path = self.image_files[index]
         self.load_image_file(file_path, -1)
+        self.status_bar.showMessage(f"Scale={self.current_scale}")
 
     def zoom_in(self):
         self.current_scale *= 1.2
         self.load_image_file(self.current_file_path, self.current_scale)
+        self.status_bar.showMessage(f"Scale={self.current_scale}")
+
 
     def zoom_out(self):
         self.current_scale *= 1 / 1.2
         self.load_image_file(self.current_file_path, self.current_scale)
+        self.status_bar.showMessage(f"Scale={self.current_scale}")
 
     def zoom_auto(self):
         self.graphics_view.fitInView(self.scene.itemsBoundingRect(), mode=Qt.KeepAspectRatio)
-
+        self.status_bar.showMessage(f"Scale={self.current_scale}")
 
 
 class ImageBrowser(QMainWindow):
@@ -161,10 +173,38 @@ class ImageBrowser(QMainWindow):
         self.setStatusBar(self.status_bar)
 
 
-    
+class ImageBrowserApp(QApplication):
+    def __init__(self, sys_argv):
+        super().__init__(sys_argv)
 
-if __name__ == '__main__':
+        self.main_window1 = QMainWindow()
+        self.main_window1.setWindowTitle("Image Browser 1")
+        self.image_browser_widget1 = ImageBrowserWidget()
+        self.main_window1.setCentralWidget(self.image_browser_widget1)
+        self.main_window1.show()
+
+        self.main_window2 = QMainWindow()
+        self.main_window2.setWindowTitle("Image Browser 2")
+        self.image_browser_widget2 = ImageBrowserWidget()
+        self.main_window2.setCentralWidget(self.image_browser_widget2)
+        self.main_window2.show()
+
+
+def main0():
     app = QApplication(sys.argv)
     window = ImageBrowser()
     window.show()
     sys.exit(app.exec_())
+
+def main1():
+    import sys
+    app = ImageBrowserApp(sys.argv)
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    # Single window
+    # main0() 
+    # 2 windows
+    main1()
+
