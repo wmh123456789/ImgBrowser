@@ -3,9 +3,9 @@ import os
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QImageReader, QPixmap, QPainter
 from PyQt5.QtWidgets import QApplication, QFileDialog, QGraphicsPixmapItem, \
-                            QGraphicsScene, QMainWindow, QListWidget, QStatusBar, \
+                            QGraphicsScene, QMainWindow, QListWidget, QStatusBar, QMenu,\
                             QAction, QSplitter, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, \
-                            QGraphicsView, QToolBar, QPushButton, QCheckBox, QLineEdit
+                            QGraphicsView, QToolBar, QPushButton, QListWidgetItem, QCheckBox, QLineEdit
 
 class ImageBrowserWidget(QWidget):
     def __init__(self):
@@ -13,10 +13,13 @@ class ImageBrowserWidget(QWidget):
 
         self.current_scale = 1.0
         self.current_file_path = None
+        self.image_files = []
 
-         # File List Widget
+        # File List Widget
         self.list_widget = QListWidget()
         self.list_widget.itemClicked.connect(self.load_image)
+        self.list_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self.show_context_menu)
 
         # Image Viewer
         self.graphics_view = QGraphicsView()
@@ -34,6 +37,10 @@ class ImageBrowserWidget(QWidget):
         self.open_folder_btn = QPushButton("Open Folder")
         self.open_folder_btn.clicked.connect(self.showDialogOpenFolder)
         self.toolbar.addWidget(self.open_folder_btn)
+
+        self.clear_list_btn = QPushButton("Clear List")
+        self.clear_list_btn.clicked.connect(self.clear_file_list)
+        self.toolbar.addWidget(self.clear_list_btn)
 
         self.zoom_in_btn = QPushButton('+')
         self.zoom_in_btn.clicked.connect(self.zoom_in)
@@ -59,6 +66,7 @@ class ImageBrowserWidget(QWidget):
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.toolbar)
         main_layout.addLayout(hbox)
+        self.setLayout(main_layout)
 
         # Status Bar
         self.status_bar = QStatusBar()
@@ -81,11 +89,39 @@ class ImageBrowserWidget(QWidget):
         hbox.setStretchFactor(self.list_widget, 0)
         hbox.setStretchFactor(self.graphics_view, 1)
 
-    def showDialogOpenFile(self):
-        fname = QFileDialog.getOpenFileName(self, 'Open file', os.getenv('HOME'), "Images (*.jpg *.png)")
+    def clear_file_list(self):
+        self.list_widget.clear()
+        self.image_files.clear()
 
-        if fname[0]:
-            self.load_image_file(fname[0])
+    def show_context_menu(self, point):
+        item = self.list_widget.itemAt(point)
+        if item is None:
+            return
+        menu = QMenu()
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self.delete_file_from_list(item))
+        menu.addAction(delete_action)
+        menu.exec(self.list_widget.mapToGlobal(point))
+
+    def delete_file_from_list(self, item):
+        row = self.list_widget.row(item)
+        file_path = item.toolTip()
+        self.list_widget.takeItem(row)
+        self.image_files.remove(file_path)
+
+    def showDialogOpenFile(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.xpm *.jpg *.bmp);;All Files (*)", options=options)
+        if file_path:
+            self.current_file_path = file_path
+            self.load_image_file(file_path)
+            item = QListWidgetItem(os.path.basename(file_path))
+            item.setToolTip(file_path)
+            self.list_widget.addItem(item)
+            self.image_files.append(file_path)
+
+    
 
     def showDialogOpenFolder(self):
         dname = QFileDialog.getExistingDirectory(self, 'Select Folder', os.getenv('HOME'), QFileDialog.ShowDirsOnly)
@@ -94,8 +130,8 @@ class ImageBrowserWidget(QWidget):
             self.load_folder(dname)
 
     def load_folder(self, folder_path):
-        self.list_widget.clear()
-        self.image_files = []
+        # self.list_widget.clear()
+        # self.image_files = []
 
         for file in os.listdir(folder_path):
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
